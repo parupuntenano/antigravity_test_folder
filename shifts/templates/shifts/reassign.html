@@ -1,0 +1,103 @@
+{% extends 'shifts/base.html' %}
+
+{% block title %}代替スタッフの再割り当て | シフト表作成システム{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 1.5rem;">
+  <h2 style="font-family: var(--font-title); font-size: 1.75rem; font-weight: 700;">代替スタッフの再割り当て</h2>
+  <p style="color: var(--text-secondary); font-size: 0.95rem;">
+    急な休みなどで空いた枠に対して、最適な代替候補スタッフを検索して再割り当てを行います。
+  </p>
+</div>
+
+<!-- 対象シフト情報 -->
+<div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%);">
+  <h3 class="card-title" style="margin-bottom: 0.75rem;">再割り当て対象の枠</h3>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+    <div>
+      <span style="color: var(--text-muted); font-size: 0.8rem; display: block;">日付</span>
+      <span style="font-weight: 600; font-size: 1.1rem;">{{ shift.date|date:"Y年m月d日" }}</span>
+    </div>
+    <div>
+      <span style="color: var(--text-muted); font-size: 0.8rem; display: block;">業務名</span>
+      <span style="font-weight: 600; font-size: 1.1rem; color: var(--accent-light);">{{ shift.task.name }}</span>
+    </div>
+    <div>
+      <span style="color: var(--text-muted); font-size: 0.8rem; display: block;">現在の担当者</span>
+      <span style="font-weight: 600; font-size: 1.1rem; color: var(--color-danger);">
+        {{ shift.staff.name|default:"未割り当て" }}
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- 代替候補スタッフ一覧 -->
+<div class="card">
+  <h3 class="card-title">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
+    割り当て可能な代替候補スタッフ ({{ candidates|length }}名)
+  </h3>
+  
+  <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+    ※ 勤務不可日、承認済みの休み、その日すでに他の業務に割り当てられているスタッフは除外されています。<br>
+    ※ 担当数（月間合計シフト数）が少なく、かつ前日に同じ業務に入っていないスタッフが上位に表示されます。
+  </p>
+
+  {% if candidates %}
+    <div class="table-container">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>スタッフ名</th>
+            <th>今月の合計勤務数</th>
+            <th>連続勤務の判定</th>
+            <th>備考</th>
+            <th style="text-align: right;">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cand in candidates %}
+            <tr>
+              <td style="font-weight: 600;">{{ cand.staff.name }}</td>
+              <td>
+                <span class="badge badge-info" style="font-size: 0.85rem;">
+                  {{ cand.month_count }} 回 / 月
+                </span>
+              </td>
+              <td>
+                {% if cand.is_consecutive %}
+                  <span class="badge badge-warning">連続勤務（前日同業務）</span>
+                {% else %}
+                  <span class="badge badge-success">連続なし</span>
+                {% endif %}
+              </td>
+              <td style="color: var(--text-muted); font-size: 0.85rem;">{{ cand.staff.memo|default:"-" }}</td>
+              <td style="text-align: right;">
+                <form action="{% url 'shifts:shift_reassign' shift.id %}" method="post">
+                  {% csrf_token %}
+                  <input type="hidden" name="staff_id" value="{{ cand.staff.id }}">
+                  <button type="submit" class="btn btn-primary btn-sm">
+                    このスタッフを割り当てる
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 3rem 0; color: var(--text-muted);">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 1rem; opacity: 0.5;"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12.01" y1="8" y2="8"/><path d="M12 12v4"/></svg>
+      <p style="font-size: 0.95rem; font-weight: 500;">割り当て可能な代替スタッフが見つかりませんでした。</p>
+      <p style="font-size: 0.8rem; margin-top: 0.25rem;">人員に空きのある日に変更するか、手動で他のスタッフのシフト調整を行ってください。</p>
+    </div>
+  {% endif %}
+
+  <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem; border-top: 1px solid var(--border-glass); padding-top: 1.25rem;">
+    <a href="{% url 'shifts:shift_management' %}?year={{ shift.date.year }}&month={{ shift.date.month }}" class="btn btn-secondary">
+      シフト表に戻る
+    </a>
+  </div>
+</div>
+{% endblock %}

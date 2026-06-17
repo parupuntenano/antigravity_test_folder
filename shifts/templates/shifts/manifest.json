@@ -1,0 +1,37 @@
+{% load static %}
+{
+  "name": "ShiftFlow シフト表作成システム",
+  "short_name": "ShiftFlow",
+  "description": "月間シフト表の自動作成・管理システム",
+  "start_url": "{% url 'shifts:dashboard' %}",
+  "display": "standalone",
+  "background_color": "#0a0c10",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "{% static 'images/icon-192.png' %}",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "{% static 'images/icon-512.png' %}",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "{% static 'images/icon-192-maskable.png' %}",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "{% static 'images/icon-512-maskable.png' %}",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ]
+}

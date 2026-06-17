@@ -1,0 +1,163 @@
+{% extends 'shifts/base.html' %}
+
+{% block title %}スタッフダッシュボード | シフト表作成システム{% endblock %}
+
+{% block content %}
+<!-- ヘッダー -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+  <div>
+    <h2 style="font-family: var(--font-title); font-size: 1.75rem; font-weight: 700;">マイシフト & 各種申請</h2>
+    <p style="color: var(--text-secondary); font-size: 0.95rem;">
+      {{ year }}年{{ month }}月の勤務予定と、勤務不可日の登録・急な休みの申請が行えます。
+    </p>
+  </div>
+  
+  <!-- 月切り替え -->
+  <div style="display: flex; gap: 0.5rem; align-items: center;">
+    <a href="{% url 'shifts:staff_dashboard' %}?year={{ prev_year }}&month={{ prev_month }}" class="btn btn-secondary btn-sm">
+      &laquo; 前月
+    </a>
+    <span style="font-family: var(--font-title); font-weight: 700; font-size: 1.1rem; padding: 0 0.5rem;">
+      {{ year }}年{{ month }}月
+    </span>
+    <a href="{% url 'shifts:staff_dashboard' %}?year={{ next_year }}&month={{ next_month }}" class="btn btn-secondary btn-sm">
+      翌月 &raquo;
+    </a>
+  </div>
+</div>
+
+<div class="grid-two-cols" style="display: grid; grid-template-columns: 3fr 1fr; gap: 1.5rem; width: 100%;">
+  
+  <!-- 左カラム: 月間カレンダー -->
+  <div class="card" style="padding: 1.25rem;">
+    <h3 class="card-title" style="margin-bottom: 1rem;">勤務カレンダー</h3>
+    
+    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+      ※ カレンダー内の<strong>「勤務不可」</strong>または<strong>「勤務可能」</strong>ボタンを押すと、その日付の勤務可否をトグル（切り替え）できます。<br>
+      ※ シフトが確定している日は背景に業務名がカード表示されます。
+    </p>
+
+    <div class="calendar-grid">
+      <!-- 曜日ヘッダー -->
+      <div class="calendar-header-day">月</div>
+      <div class="calendar-header-day">火</div>
+      <div class="calendar-header-day">水</div>
+      <div class="calendar-header-day">木</div>
+      <div class="calendar-header-day">金</div>
+      <div class="calendar-header-day" style="color: hsl(200, 95%, 70%);">土</div>
+      <div class="calendar-header-day" style="color: var(--color-danger);">日</div>
+
+      <!-- 週・日付 -->
+      {% for week in calendar_weeks %}
+        {% for day in week %}
+          <div class="calendar-day-cell {% if not day.is_current_month %}other-month{% endif %} {% if day.is_unavailable %}is-unavailable{% endif %}">
+            
+            <div class="calendar-day-header">
+              <span class="calendar-day-number {% if day.date.weekday == 5 %}saturday{% elif day.date.weekday == 6 %}sunday{% endif %}">
+                {{ day.date.day }}
+              </span>
+              
+              <!-- 勤務不可のトグルボタン -->
+              {% if day.is_current_month %}
+                <form action="{% url 'shifts:unavailable_toggle' %}" method="post">
+                  {% csrf_token %}
+                  <input type="hidden" name="date" value="{{ day.date|date:'Y-m-d' }}">
+                  {% if day.is_unavailable %}
+                    <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.65rem; padding: 0.1rem 0.35rem; color: var(--color-success); border-color: var(--color-success-bg);" title="勤務可能にする">
+                      可能にする
+                    </button>
+                  {% else %}
+                    <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.65rem; padding: 0.1rem 0.35rem;" title="不可に登録">
+                      不可にする
+                    </button>
+                  {% endif %}
+                </form>
+              {% endif %}
+            </div>
+
+            <!-- シフト情報の表示 -->
+            {% if day.shift %}
+              <div class="calendar-shift-badge" title="確定シフト">
+                {{ day.shift.task.name }}
+              </div>
+            {% endif %}
+
+            <!-- 休み申請状況の表示 -->
+            {% if day.absence %}
+              <div style="margin-top: 0.25rem;">
+                {% if day.absence.status == 'pending' %}
+                  <span class="badge badge-warning" style="width: 100%; text-align: center; display: block;">休み申請中</span>
+                {% elif day.absence.status == 'approved' %}
+                  <span class="badge badge-danger" style="width: 100%; text-align: center; display: block;">公休 (承認済)</span>
+                {% elif day.absence.status == 'rejected' %}
+                  <span class="badge badge-secondary" style="width: 100%; text-align: center; display: block; text-decoration: line-through;">休み却下</span>
+                {% endif %}
+              </div>
+            {% endif %}
+
+          </div>
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- 右カラム: 休み申請フォーム & 履歴 -->
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <!-- 急な休み申請フォーム -->
+    <div class="card">
+      <h3 class="card-title" style="color: var(--color-danger);">急な休み申請</h3>
+      
+      <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+        すでにシフトが割り当てられている日や、直前に休まなければならなくなった場合に申請してください。
+      </p>
+
+      <form action="{% url 'shifts:absence_request' %}" method="post">
+        {% csrf_token %}
+        <div class="form-group">
+          <label for="id_date">対象日</label>
+          <input type="date" name="date" required id="id_date" class="form-control" value="{{ today|date:'Y-m-d' }}">
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label for="id_reason">理由</label>
+          <textarea name="reason" id="id_reason" class="form-control" rows="3" required placeholder="体調不良のため、家庭の事情のため、など"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-danger" style="width: 100%;">
+          休みを申請する
+        </button>
+      </form>
+    </div>
+
+    <!-- 最近の申請履歴 -->
+    <div class="card" style="padding: 1.25rem;">
+      <h3 class="card-title" style="font-size: 1rem;">申請履歴（最新10件）</h3>
+      
+      {% if my_absence_requests %}
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 300px; overflow-y: auto;">
+          {% for r in my_absence_requests %}
+            <div style="background-color: rgba(255, 255, 255, 0.02); padding: 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-glass);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                <strong style="font-size: 0.85rem;">{{ r.date|date:"m月d日" }}</strong>
+                {% if r.status == 'pending' %}
+                  <span class="badge badge-warning" style="font-size: 0.65rem;">申請中</span>
+                {% elif r.status == 'approved' %}
+                  <span class="badge badge-danger" style="font-size: 0.65rem;">承認</span>
+                {% else %}
+                  <span class="badge badge-secondary" style="font-size: 0.65rem;">却下</span>
+                {% endif %}
+              </div>
+              <p style="color: var(--text-muted); font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ r.reason }}">
+                {{ r.reason }}
+              </p>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 1rem 0;">申請履歴はありません。</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

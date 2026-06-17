@@ -1,0 +1,66 @@
+{% extends 'shifts/base.html' %}
+
+{% block title %}業務管理 | シフト表作成システム{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+  <div>
+    <h2 style="font-family: var(--font-title); font-size: 1.75rem; font-weight: 700;">業務管理</h2>
+    <p style="color: var(--text-secondary); font-size: 0.95rem;">シフト表作成に必要な各業務と、1日あたりの必要人数の設定・管理を行います。</p>
+  </div>
+  <a href="{% url 'shifts:task_create' %}" class="btn btn-primary">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+    業務を登録
+  </a>
+</div>
+
+<div class="card">
+  <div class="table-container">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>業務名</th>
+          <th>1日あたりの必要人数</th>
+          <th>必要スキル</th>
+          <th>備考</th>
+          <th style="text-align: right;">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tasks %}
+          <tr>
+            <td style="font-weight: 600;">{{ t.name }}</td>
+            <td>
+              <span class="badge badge-info" style="font-size: 0.85rem;">
+                {{ t.required_people_per_day }} 名 / 日
+              </span>
+            </td>
+            <td>
+              {% if t.required_skill %}
+                <code style="color: var(--accent-light);">{{ t.required_skill }}</code>
+              {% else %}
+                <span style="color: var(--text-muted); font-size: 0.85rem;">特になし</span>
+              {% endif %}
+            </td>
+            <td style="color: var(--text-muted); font-size: 0.85rem;">{{ t.memo|default:"-" }}</td>
+            <td style="text-align: right;">
+              <div style="display: inline-flex; gap: 0.5rem;">
+                <a href="{% url 'shifts:task_edit' t.id %}" class="btn btn-secondary btn-sm">
+                  編集
+                </a>
+                <a href="{% url 'shifts:task_delete' t.id %}" class="btn btn-danger btn-sm">
+                  削除
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 3rem 0;">業務が登録されていません。</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

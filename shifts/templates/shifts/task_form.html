@@ -1,0 +1,57 @@
+{% extends 'shifts/base.html' %}
+
+{% block title %}{% if form.instance.pk %}業務編集{% else %}業務登録{% endif %} | シフト表作成システム{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 1.5rem;">
+  <h2 style="font-family: var(--font-title); font-size: 1.75rem; font-weight: 700;">
+    {% if form.instance.pk %}業務「{{ form.instance.name }}」の編集{% else %}業務の新規登録{% endif %}
+  </h2>
+  <p style="color: var(--text-secondary); font-size: 0.95rem;">業務の構成情報を入力します。</p>
+</div>
+
+<div class="card" style="max-width: 550px;">
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <div class="form-group">
+      <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+      <input type="text" name="name" value="{{ form.name.value|default:'' }}" id="{{ form.name.id_for_label }}" class="form-control" required placeholder="レジ業務">
+      {% if form.name.errors %}
+        <div style="color: var(--color-danger); font-size: 0.75rem; margin-top: 0.25rem;">{{ form.name.errors.0 }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ form.required_people_per_day.id_for_label }}">{{ form.required_people_per_day.label }}</label>
+      <input type="number" name="required_people_per_day" value="{{ form.required_people_per_day.value|default:1 }}" id="{{ form.required_people_per_day.id_for_label }}" class="form-control" required min="1">
+      {% if form.required_people_per_day.errors %}
+        <div style="color: var(--color-danger); font-size: 0.75rem; margin-top: 0.25rem;">{{ form.required_people_per_day.errors.0 }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-group">
+      <label for="{{ form.required_skill.id_for_label }}">{{ form.required_skill.label }}</label>
+      <input type="text" name="required_skill" value="{{ form.required_skill.value|default:'' }}" id="{{ form.required_skill.id_for_label }}" class="form-control" placeholder="レジ研修修了者">
+      {% if form.required_skill.errors %}
+        <div style="color: var(--color-danger); font-size: 0.75rem; margin-top: 0.25rem;">{{ form.required_skill.errors.0 }}</div>
+      {% endif %}
+    </div>
+
+    <div class="form-group" style="margin-bottom: 2rem;">
+      <label for="{{ form.memo.id_for_label }}">{{ form.memo.label }}</label>
+      <textarea name="memo" id="{{ form.memo.id_for_label }}" class="form-control" rows="3" placeholder="業務の手順や特記事項を入力してください">{{ form.memo.value|default:'' }}</textarea>
+      {% if form.memo.errors %}
+        <div style="color: var(--color-danger); font-size: 0.75rem; margin-top: 0.25rem;">{{ form.memo.errors.0 }}</div>
+      {% endif %}
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+      <a href="{% url 'shifts:task_list' %}" class="btn btn-secondary">キャンセル</a>
+      <button type="submit" class="btn btn-primary">
+        {% if form.instance.pk %}更新する{% else %}登録する{% endif %}
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

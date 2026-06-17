@@ -1,0 +1,22 @@
+{% extends 'shifts/base.html' %}
+
+{% block title %}スタッフ削除確認 | シフト表作成システム{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 500px; margin: 2rem auto;">
+  <h3 class="card-title" style="color: var(--color-danger);">スタッフの削除確認</h3>
+  
+  <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+    スタッフ「<strong>{{ object.name }}</strong>」を削除してもよろしいですか？<br>
+    この操作は取り消せません。また、このスタッフに関連付けられているユーザーアカウントや勤務履歴もすべて削除されます。
+  </p>
+
+  <form method="post">
+    {% csrf_token %}
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+      <a href="{% url 'shifts:staff_list' %}" class="btn btn-secondary">キャンセル</a>
+      <button type="submit" class="btn btn-danger">本当に削除する</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

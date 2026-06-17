@@ -1,0 +1,49 @@
+{% extends 'shifts/base.html' %}
+
+{% block title %}ログイン | シフト表作成システム{% endblock %}
+
+{% block extra_css %}
+<style>
+  body {
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 10% 20%, hsl(222, 47%, 9%) 0%, hsl(222, 47%, 4%) 90%);
+  }
+</style>
+{% endblock %}
+
+{% block login_content %}
+<div class="login-card card">
+  <div class="login-header">
+    <h1>ShiftFlow</h1>
+    <p>月間シフト表作成システム</p>
+  </div>
+
+  {% if form.errors %}
+    <div class="messages" style="margin-bottom: 1.5rem;">
+      <li class="message-item error">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
+        ログインIDまたはパスワードが正しくありません。
+      </li>
+    </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'shifts:login' %}">
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="id_username">ログインID</label>
+      <input type="text" name="username" autofocus maxlength="150" required id="id_username" class="form-control" placeholder="IDを入力してください">
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 2rem;">
+      <label for="id_password">パスワード</label>
+      <input type="password" name="password" required id="id_password" class="form-control" placeholder="••••••••">
+    </div>
+
+    <button type="submit" class="btn btn-primary" style="width: 100%;">
+      ログイン
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </form>
+</div>
+{% endblock %}

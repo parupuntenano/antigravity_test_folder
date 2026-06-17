@@ -1,0 +1,124 @@
+{% extends 'shifts/base.html' %}
+
+{% block title %}管理者ダッシュボード | シフト表作成システム{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+  <h2 style="font-family: var(--font-title); font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem;">管理者ダッシュボード</h2>
+  <p style="color: var(--text-secondary); font-size: 0.95rem;">シフト表の自動生成、スタッフや業務情報の管理を行います。</p>
+</div>
+
+<!-- 統計カードグリッド -->
+<div class="stats-grid">
+  <!-- スタッフ数 -->
+  <div class="card stat-card">
+    <div class="stat-icon purple">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    </div>
+    <div class="stat-details">
+      <span class="stat-value">{{ staff_count }}</span>
+      <span class="stat-label">パートスタッフ</span>
+    </div>
+  </div>
+
+  <!-- 業務数 -->
+  <div class="card stat-card">
+    <div class="stat-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 6v6l4 2"/></svg>
+    </div>
+    <div class="stat-details">
+      <span class="stat-value">{{ task_count }}</span>
+      <span class="stat-label">登録業務</span>
+    </div>
+  </div>
+
+  <!-- 今月の未割り当てシフト -->
+  <div class="card stat-card">
+    <div class="stat-icon danger">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+    </div>
+    <div class="stat-details">
+      <span class="stat-value">{{ unassigned_shifts_count }}</span>
+      <span class="stat-label">今月の未割り当て枠</span>
+    </div>
+  </div>
+</div>
+
+<div class="grid-two-cols" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-top: 1rem;">
+  <!-- 左カラム: 急な休み申請 -->
+  <div class="card">
+    <h3 class="card-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
+      未対応の急な休み申請 ({{ pending_absences.count }})
+    </h3>
+
+    {% if pending_absences %}
+      <div class="table-container">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>スタッフ</th>
+              <th>日付</th>
+              <th>理由</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for abs in pending_absences %}
+              <tr>
+                <td style="font-weight: 600;">{{ abs.staff.name }}</td>
+                <td>{{ abs.date|date:"Y年m月d日" }}</td>
+                <td style="color: var(--text-secondary);">{{ abs.reason }}</td>
+                <td>
+                  <div style="display: flex; gap: 0.5rem;">
+                    <form action="{% url 'shifts:absence_approve' abs.id %}" method="post">
+                      {% csrf_token %}
+                      <button type="submit" name="action" value="approve" class="btn btn-primary btn-sm">
+                        承認 & シフト解除
+                      </button>
+                    </form>
+                    <form action="{% url 'shifts:absence_approve' abs.id %}" method="post">
+                      {% csrf_token %}
+                      <button type="submit" name="action" value="reject" class="btn btn-secondary btn-sm">
+                        却下
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 2rem 0;">現在、未対応の休み申請はありません。</p>
+    {% endif %}
+  </div>
+
+  <!-- 右カラム: クイックアクション -->
+  <div class="card">
+    <h3 class="card-title">クイックメニュー</h3>
+    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+      <a href="{% url 'shifts:shift_management' %}" class="btn btn-primary" style="text-align: center; width: 100%;">
+        シフト表を開く
+      </a>
+      
+      <form action="{% url 'shifts:shift_generate' %}" method="post" style="width: 100%;">
+        {% csrf_token %}
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month" value="{{ month }}">
+        <button type="submit" class="btn btn-secondary" style="width: 100%; border-color: var(--accent);">
+          今月 ({{ month }}月) のシフトを自動作成
+        </button>
+      </form>
+      
+      <a href="{% url 'shifts:staff_create' %}" class="btn btn-secondary" style="text-align: center; width: 100%;">
+        新規スタッフ登録
+      </a>
+      <a href="{% url 'shifts:task_create' %}" class="btn btn-secondary" style="text-align: center; width: 100%;">
+        新規業務登録
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
