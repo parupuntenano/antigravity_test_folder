@@ -39,6 +39,22 @@ def generate_monthly_shifts(year, month):
         # 各スタッフの今月の割り当て回数
         staff_shift_counts = {staff.id: 0 for staff in staff_pool}
 
+        # 各スタッフの各週 (year_num, week_num) の勤務日数を管理
+        weekly_work_counts = {staff.id: {} for staff in staff_pool}
+        
+        # 月の開始前・終了後の端数の週にある確定済みシフトを考慮して初期カウントを設定
+        first_week_monday = start_date - timedelta(days=start_date.weekday())
+        last_week_sunday = end_date + timedelta(days=6 - end_date.weekday())
+        existing_shifts = Shift.objects.filter(
+            date__range=(first_week_monday, last_week_sunday),
+            staff__isnull=False
+        )
+        for s in existing_shifts:
+            if s.staff_id in weekly_work_counts:
+                y_num, w_num, _ = s.date.isocalendar()
+                key = (y_num, w_num)
+                weekly_work_counts[s.staff_id][key] = weekly_work_counts[s.staff_id].get(key, 0) + 1
+
         # 前日の最終割り当て業務を保持する辞書
         last_assigned_task = {staff.id: None for staff in staff_pool}
 
@@ -76,6 +92,11 @@ def generate_monthly_shifts(year, month):
                         # 3. 本日すでに別の業務に割り当てられていないか
                         if staff.id in assigned_today:
                             continue
+                        # 4. 完全週休2日の制限（週に最大5日勤務）
+                        y_num, w_num, _ = current_date.isocalendar()
+                        week_key = (y_num, w_num)
+                        if weekly_work_counts[staff.id].get(week_key, 0) >= 5:
+                            continue
                         
                         candidates.append(staff)
 
@@ -109,6 +130,11 @@ def generate_monthly_shifts(year, month):
                         assigned_today.add(chosen_staff.id)
                         staff_shift_counts[chosen_staff.id] += 1
                         last_assigned_task[chosen_staff.id] = task.id
+                        
+                        # 週ごとの勤務カウントをインクリメント
+                        y_num, w_num, _ = current_date.isocalendar()
+                        week_key = (y_num, w_num)
+                        weekly_work_counts[chosen_staff.id][week_key] = weekly_work_counts[chosen_staff.id].get(week_key, 0) + 1
                     else:
                         # 割り当て可能なスタッフがいない場合は、未割り当てとしてスロットだけ作成
                         Shift.objects.create(
@@ -153,6 +179,19 @@ def get_month_warnings(year, month):
         if s.staff_id:
             assignment_map[(s.staff_id, s.date)] = s.task_id
 
+    # 各スタッフの週（月〜日）ごとの勤務日数を集計
+    first_week_monday = start_date - timedelta(days=start_date.weekday())
+    last_week_sunday = end_date + timedelta(days=6 - end_date.weekday())
+    all_assigned_shifts = Shift.objects.filter(
+        date__range=(first_week_monday, last_week_sunday),
+        staff__isnull=False
+    )
+    weekly_work_counts = {}
+    for ash in all_assigned_shifts:
+        y_num, w_num, _ = ash.date.isocalendar()
+        key = (ash.staff_id, y_num, w_num)
+        weekly_work_counts[key] = weekly_work_counts.get(key, 0) + 1
+
     warnings = {}
     for s in shifts:
         # 1日前のシフトは警告対象外（表示されないため）
@@ -174,6 +213,12 @@ def get_month_warnings(year, month):
             prev_task_id = assignment_map.get((s.staff_id, prev_date))
             if prev_task_id == s.task_id:
                 shift_warnings.append(f"同じ業務（{s.task.name}）が連続しています。")
+                
+            # 完全週休2日（週最大5日勤務）のチェック
+            y_num, w_num, _ = s.date.isocalendar()
+            week_key = (s.staff_id, y_num, w_num)
+            if weekly_work_counts.get(week_key, 0) > 5:
+                shift_warnings.append(f"週の勤務日数が{weekly_work_counts[week_key]}日になっており、完全週休2日（週最大5日勤務）を満たしていません。")
 
         if shift_warnings:
             warnings[s.id] = shift_warnings

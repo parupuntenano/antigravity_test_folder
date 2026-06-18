@@ -31,6 +31,7 @@ urlpatterns = [
     
     # シフト管理
     path('manager/shifts/', views.ShiftManagementView.as_view(), name='shift_management'),
+    path('manager/shifts/stats/', views.ShiftStatsView.as_view(), name='shift_stats'),
     path('manager/shifts/generate/', views.AutoGenerateShiftView.as_view(), name='shift_generate'),
     path('manager/shifts/update/', views.UpdateShiftStaffView.as_view(), name='shift_update'),
     path('manager/shifts/<int:shift_id>/reassign/', views.ReassignShiftView.as_view(), name='shift_reassign'),

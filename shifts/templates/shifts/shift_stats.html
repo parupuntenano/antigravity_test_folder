@@ -1,0 +1,331 @@
+{% extends 'shifts/base.html' %}
+
+{% block title %}勤務日数集計 | シフト表作成システム{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* 統計・可視化カード用の拡張デザイン */
+  .stats-info-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+  }
+  
+  .badge-success {
+    background-color: var(--color-success-bg);
+    color: var(--color-success);
+    border: 1px solid hsla(142, 70%, 45%, 0.3);
+  }
+  
+  .badge-warning {
+    background-color: var(--color-warning-bg);
+    color: var(--color-warning);
+    border: 1px solid hsla(38, 92%, 50%, 0.3);
+  }
+  
+  .badge-danger {
+    background-color: var(--color-danger-bg);
+    color: var(--color-danger);
+    border: 1px solid hsla(355, 84%, 55%, 0.3);
+  }
+
+  .progress-container {
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 9999px;
+    height: 8px;
+    margin-top: 0.25rem;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-light) 100%);
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+
+  @media (max-width: 992px) {
+    .stats-info-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- ヘッダーエリア -->
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 2rem; margin-bottom: 1.5rem;">
+  <div>
+    <h2 style="font-family: var(--font-title); font-size: 1.75rem; font-weight: 700;">勤務日数集計</h2>
+    <p style="color: var(--text-secondary); font-size: 0.95rem;">
+      {{ year }}年{{ month }}月のスタッフごとの勤務日数およびシフト割り当てバランスの集計です。
+    </p>
+  </div>
+  
+  <!-- 年月切り替えフォーム -->
+  <form method="get" action="{% url 'shifts:shift_stats' %}" style="display: flex; gap: 0.5rem; align-items: center;">
+    <select name="year" class="form-control" style="width: auto; padding: 0.5rem 1rem;">
+      {% for y_choice in month_choices %}
+        <option value="{{ y_choice.0 }}" {% if y_choice.0 == year %}selected{% endif %}>{{ y_choice.0 }}年</option>
+      {% endfor %}
+    </select>
+    <select name="month" class="form-control" style="width: auto; padding: 0.5rem 1rem;">
+      <option value="1" {% if month == 1 %}selected{% endif %}>1月</option>
+      <option value="2" {% if month == 2 %}selected{% endif %}>2月</option>
+      <option value="3" {% if month == 3 %}selected{% endif %}>3月</option>
+      <option value="4" {% if month == 4 %}selected{% endif %}>4月</option>
+      <option value="5" {% if month == 5 %}selected{% endif %}>5月</option>
+      <option value="6" {% if month == 6 %}selected{% endif %}>6月</option>
+      <option value="7" {% if month == 7 %}selected{% endif %}>7月</option>
+      <option value="8" {% if month == 8 %}selected{% endif %}>8月</option>
+      <option value="9" {% if month == 9 %}selected{% endif %}>9月</option>
+      <option value="10" {% if month == 10 %}selected{% endif %}>10月</option>
+      <option value="11" {% if month == 11 %}selected{% endif %}>11月</option>
+      <option value="12" {% if month == 12 %}selected{% endif %}>12月</option>
+    </select>
+    <button type="submit" class="btn btn-secondary">表示</button>
+  </form>
+</div>
+
+<!-- 簡易統計カード -->
+<div class="stats-grid" style="margin-bottom: 1.5rem;">
+  <div class="card stat-card">
+    <div class="stat-icon purple">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+    </div>
+    <div class="stat-details">
+      <span class="stat-value">{{ staff_stats|length }}</span>
+      <span class="stat-label">対象スタッフ数</span>
+    </div>
+  </div>
+
+  <div class="card stat-card">
+    <div class="stat-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+    </div>
+    <div class="stat-details">
+      <span class="stat-value">{{ average_shifts }} 日</span>
+      <span class="stat-label">スタッフ平均勤務日数</span>
+    </div>
+  </div>
+</div>
+
+<div class="stats-info-grid">
+  <!-- 左側：勤務日数グラフ -->
+  <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column;">
+    <h3 class="card-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>
+      勤務日数グラフ（多い順）
+    </h3>
+    <div style="flex-grow: 1; min-height: 400px; position: relative;">
+      <canvas id="shiftStatsChartMain"></canvas>
+    </div>
+  </div>
+
+  <!-- 右側：スタッフ検索 & 勤務日数一覧テーブル -->
+  <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; max-height: 500px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; gap: 1rem; flex-wrap: wrap;">
+      <h3 class="card-title" style="margin-bottom: 0;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>
+        スタッフ別内訳
+      </h3>
+      <input type="text" id="staff-search-input" placeholder="スタッフ名で検索..." class="form-control" style="max-width: 200px; padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+    </div>
+    
+    <div class="table-container" style="flex-grow: 1; overflow-y: auto;">
+      <table class="custom-table" id="stats-detail-table">
+        <thead>
+          <tr>
+            <th style="padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border-glass);">スタッフ</th>
+            <th style="padding: 0.75rem 0.5rem; text-align: center; border-bottom: 1px solid var(--border-glass);">勤務日数</th>
+            <th style="padding: 0.75rem 0.5rem; text-align: center; border-bottom: 1px solid var(--border-glass);">不可日</th>
+            <th style="padding: 0.75rem 0.5rem; text-align: center; border-bottom: 1px solid var(--border-glass);">平均比</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for stat in staff_stats %}
+            <tr class="staff-row" data-name="{{ stat.name }}">
+              <td style="padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border-glass);">
+                <div style="font-weight: 600;">{{ stat.name }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">可能業務: {{ stat.available_tasks_count }}件</div>
+              </td>
+              <td style="padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--border-glass);">
+                <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                  <span style="font-weight: bold; font-size: 0.95rem;">{{ stat.shift_count }}日</span>
+                  <div class="progress-container">
+                    <div class="progress-bar" style="width: {{ stat.percentage }}%;"></div>
+                  </div>
+                </div>
+              </td>
+              <td style="padding: 0.75rem 0.5rem; text-align: center; color: var(--text-secondary); border-bottom: 1px solid var(--border-glass);">
+                {{ stat.unavailable_count }}日
+              </td>
+              <td style="padding: 0.75rem 0.5rem; text-align: center; border-bottom: 1px solid var(--border-glass);">
+                <span class="badge {% if stat.diff_value > 1.5 %}badge-danger{% elif stat.diff_value < -1.5 %}badge-warning{% else %}badge-success{% endif %}">
+                  {{ stat.diff }}
+                </span>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem 0;">
+                スタッフが登録されていません。
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // --- スタッフ絞り込み検索機能 ---
+  const searchInput = document.getElementById('staff-search-input');
+  const tableRows = document.querySelectorAll('#stats-detail-table tbody .staff-row');
+  
+  searchInput.addEventListener('input', function() {
+    const filterText = searchInput.value.toLowerCase().trim();
+    tableRows.forEach(row => {
+      const name = row.getAttribute('data-name').toLowerCase();
+      if (name.includes(filterText)) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  });
+
+  // --- Chart.js グラフ描画 ---
+  const ctx = document.getElementById('shiftStatsChartMain').getContext('2d');
+  
+  const staffData = [
+    {% for stat in staff_stats %}
+      {
+        name: "{{ stat.name }}",
+        shifts: {{ stat.shift_count }},
+        unavailable: {{ stat.unavailable_count }}
+      },
+    {% endfor %}
+  ];
+  
+  const labels = staffData.map(d => d.name);
+  const shifts = staffData.map(d => d.shifts);
+  const unavailable = staffData.map(d => d.unavailable);
+  
+  const avgLinePlugin = {
+    id: 'avgLineMain',
+    afterDraw(chart) {
+      const { ctx, chartArea: { top, bottom, left, right }, scales: { x } } = chart;
+      const avgValue = {{ average_shifts|default:0 }};
+      if (avgValue <= 0) return;
+      
+      const xPos = x.getPixelForValue(avgValue);
+      
+      ctx.save();
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 5]);
+      
+      ctx.beginPath();
+      ctx.moveTo(xPos, top);
+      ctx.lineTo(xPos, bottom);
+      ctx.stroke();
+      
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.95)';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(`平均: ${avgValue}日`, xPos + 5, top + 15);
+      
+      ctx.restore();
+    }
+  };
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: '勤務日数',
+          data: shifts,
+          backgroundColor: 'rgba(99, 102, 241, 0.75)',
+          borderColor: 'rgba(99, 102, 241, 1)',
+          borderWidth: 1,
+          borderRadius: 4,
+          barPercentage: 0.6,
+          categoryPercentage: 0.6
+        },
+        {
+          label: '希望休・勤務不可日数',
+          data: unavailable,
+          backgroundColor: 'rgba(245, 158, 11, 0.3)',
+          borderColor: 'rgba(245, 158, 11, 1)',
+          borderWidth: 1,
+          borderRadius: 4,
+          barPercentage: 0.6,
+          categoryPercentage: 0.6
+        }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            color: '#e2e8f0',
+            font: {
+              family: "'Inter', sans-serif",
+              size: 11
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return ` ${context.dataset.label}: ${context.raw}日`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: {
+            color: 'rgba(255, 255, 255, 0.06)'
+          },
+          ticks: {
+            color: '#94a3b8',
+            stepSize: 1,
+            precision: 0
+          },
+          title: {
+            display: true,
+            text: '日数',
+            color: '#94a3b8'
+          }
+        },
+        y: {
+          grid: {
+            display: false
+          },
+          ticks: {
+            color: '#e2e8f0',
+            font: {
+              size: 10
+            }
+          }
+        }
+      }
+    },
+    plugins: [avgLinePlugin]
+  });
+});
+</script>
+{% endblock %}

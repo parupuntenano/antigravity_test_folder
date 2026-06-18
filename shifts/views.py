@@ -512,3 +512,94 @@ class SubmitAbsenceRequestView(StaffRequiredMixin, View):
             messages.error(request, "申請内容に不備があります。日付を正しく指定してください。")
             
         return redirect('shifts:staff_dashboard')
+
+class ShiftStatsView(AdminRequiredMixin, TemplateView):
+    """管理者用：スタッフの勤務日数集計ページ"""
+    template_name = 'shifts/shift_stats.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # クエリパラメータから年月を取得（デフォルトは現在月）
+        today = date.today()
+        year = int(self.request.GET.get('year', today.year))
+        month = int(self.request.GET.get('month', today.month))
+        
+        _, num_days = calendar.monthrange(year, month)
+        dates = [date(year, month, d) for d in range(1, num_days + 1)]
+        
+        # 当月のシフトを一括取得
+        shifts = Shift.objects.filter(
+            date__range=(dates[0], dates[-1])
+        ).select_related('staff')
+        
+        # スタッフごとのシフト勤務日数・勤務不可日数の集計
+        staff_list = Staff.objects.filter(role='staff').prefetch_related('available_tasks')
+        
+        # スタッフごとの当月シフト回数
+        staff_shift_counts = {st.id: 0 for st in staff_list}
+        for s in shifts:
+            if s.staff and s.staff.id in staff_shift_counts:
+                staff_shift_counts[s.staff.id] += 1
+                
+        # スタッフごとの当月勤務不可日数（UnavailableDate と承認済み AbsenceRequest の重複を排除）
+        unavailable_dates_by_staff = {st.id: set() for st in staff_list}
+        
+        unavailables = UnavailableDate.objects.filter(
+            staff__in=staff_list,
+            date__range=(dates[0], dates[-1])
+        )
+        for u in unavailables:
+            if u.staff_id in unavailable_dates_by_staff:
+                unavailable_dates_by_staff[u.staff_id].add(u.date)
+                
+        absences = AbsenceRequest.objects.filter(
+            staff__in=staff_list,
+            date__range=(dates[0], dates[-1]),
+            status='approved'
+        )
+        for a in absences:
+            if a.staff_id in unavailable_dates_by_staff:
+                unavailable_dates_by_staff[a.staff_id].add(a.date)
+                
+        # 全体平均シフト回数の算出
+        total_shifts = sum(staff_shift_counts.values())
+        num_staff = len(staff_list)
+        average_shifts = round(total_shifts / num_staff, 1) if num_staff > 0 else 0
+        
+        staff_stats = []
+        for st in staff_list:
+            sc = staff_shift_counts[st.id]
+            diff = round(sc - average_shifts, 1)
+            diff_str = f"+{diff}" if diff > 0 else f"{diff}"
+            if diff == 0:
+                diff_str = "±0"
+            staff_stats.append({
+                'id': st.id,
+                'name': st.name,
+                'available_tasks_count': st.available_tasks.count(),
+                'shift_count': sc,
+                'unavailable_count': len(unavailable_dates_by_staff[st.id]),
+                'diff': diff_str,
+                'diff_value': diff,
+                'percentage': round(sc / num_days * 100) if num_days > 0 else 0,
+            })
+            
+        # シフト回数が多い順にソート
+        staff_stats.sort(key=lambda x: x['shift_count'], reverse=True)
+        
+        context['staff_stats'] = staff_stats
+        context['average_shifts'] = average_shifts
+        context['year'] = year
+        context['month'] = month
+        
+        # 年月の選択肢（前後6ヶ月）
+        month_choices = []
+        start_choice = today - timedelta(days=180)
+        for i in range(13):
+            choice_date = start_choice + timedelta(days=30 * i)
+            month_choices.append((choice_date.year, choice_date.month))
+        month_choices = sorted(list(set(month_choices)))
+        context['month_choices'] = month_choices
+        
+        return context

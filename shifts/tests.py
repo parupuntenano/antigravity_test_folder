@@ -114,3 +114,27 @@ class ShiftSystemTests(TestCase):
         # 申請ステータスが'approved'になっていることを検証
         abs_req.refresh_from_db()
         self.assertEqual(abs_req.status, 'approved')
+
+    def test_weekly_work_limit(self):
+        """1週間に最大5日までしか同じスタッフにシフトが割り当てられないことを確認 (週休2日)"""
+        target_year = 2026
+        target_month = 6
+        
+        # スタッフA(受付のみ可能)を6/1〜6/7の全期間勤務不可にする
+        for day in range(1, 8):
+            UnavailableDate.objects.create(staff=self.staff1, date=date(2026, 6, day))
+            
+        # 6/1(月)〜6/7(日)まで毎日、受付の必要人数を1人にする
+        # この期間にスタッフBが何日割り当てられるか確認する。
+        # 担当可能なのはスタッフBのみだが、最大5日の制限により、2日は未割り当てになるはず
+        success = generate_monthly_shifts(target_year, target_month)
+        self.assertTrue(success)
+        
+        # 6/1〜6/7の間のスタッフBの割り当て数をカウント
+        assigned_count = Shift.objects.filter(
+            date__range=(date(2026, 6, 1), date(2026, 6, 7)),
+            staff=self.staff2
+        ).count()
+        
+        # 最大でも5日以下であることを検証
+        self.assertLessEqual(assigned_count, 5)
