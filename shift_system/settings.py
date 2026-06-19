@@ -128,3 +128,19 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # 登録データ（POSTフィールド数）の上限緩和（一括保存用）
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 3000
+
+# 登録データ（POSTフィールド数）の上限緩和（一括保存用）
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 3000
+
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'testserver',
+    '.github.dev',
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.github.dev',
+    'https://localhost:8000',
+    'http://localhost:8000',
+]
