@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-k9d)ddp!1$_kn=s5myet+2!7v)xp%6!j5gg_w2foz^0ivzi!u#
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
 
 
 # Application definition
@@ -125,3 +125,6 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# 登録データ（POSTフィールド数）の上限緩和（一括保存用）
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 3000

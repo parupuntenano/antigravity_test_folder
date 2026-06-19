@@ -103,13 +103,22 @@
         シフト表を開く
       </a>
       
-      <form action="{% url 'shifts:shift_generate' %}" method="post" style="width: 100%;">
+      <form action="{% url 'shifts:shift_generate' %}" method="post" style="width: 100%;" onsubmit="return confirm('既存の{{ year }}年{{ month }}月のシフト（下書き）がすべてクリアされます。よろしいですか？');">
         {% csrf_token %}
         <input type="hidden" name="year" value="{{ year }}">
         <input type="hidden" name="month" value="{{ month }}">
-        <button type="submit" class="btn btn-secondary" style="width: 100%; border-color: var(--accent);">
-          今月 ({{ month }}月) のシフトを自動作成
-        </button>
+        {% if all_submitted %}
+          <button type="submit" class="btn btn-secondary" style="width: 100%; border-color: var(--accent);">
+            今月 ({{ month }}月) のシフトを自動作成
+          </button>
+        {% else %}
+          <button type="button" class="btn btn-secondary" style="width: 100%; opacity: 0.5; cursor: not-allowed; border-color: var(--border-glass);" disabled title="希望未提出のスタッフが {{ not_submitted_count }} 名います">
+            今月 ({{ month }}月) のシフトを自動作成
+          </button>
+          <span style="font-size: 0.75rem; color: var(--color-warning); display: block; margin-top: 0.35rem; text-align: center; line-height: 1.3;">
+            未提出のメンバーが {{ not_submitted_count }} 名いるため自動作成できません
+          </span>
+        {% endif %}
       </form>
       
       <a href="{% url 'shifts:staff_create' %}" class="btn btn-secondary" style="text-align: center; width: 100%;">

@@ -70,16 +70,12 @@ def generate_monthly_shifts(year, month):
             current_date = date(year, month, day)
             assigned_today = set()
 
-            # タスクごとにループ
-            # 割り当て可能なスタッフが少ないタスクから順に割り当てると破綻しにくいため、
-            # 担当可能スタッフ数で昇順ソートする
+            # タスクをソート（担当可能スタッフ数が少ない順）
             tasks.sort(key=lambda t: t.capable_staff.count())
 
+            # パス1: 各業務の「1人目」を優先して割り当てる
             for task in tasks:
-                required = task.required_people_per_day
-                
-                # 必要な人数分スロットを作成して埋めていく
-                for _ in range(required):
+                if task.required_people_per_day >= 1:
                     # 候補者のリストアップ
                     candidates = []
                     for staff in staff_pool:
@@ -97,22 +93,19 @@ def generate_monthly_shifts(year, month):
                         week_key = (y_num, w_num)
                         if weekly_work_counts[staff.id].get(week_key, 0) >= 5:
                             continue
+                        # 5. 同じ業務の連続勤務回避（昨日の最終業務と同じなら除外）
+                        if last_assigned_task[staff.id] == task.id:
+                            continue
                         
                         candidates.append(staff)
 
                     if candidates:
                         # スコア計算
-                        # - 前日と同じ業務だった場合、ペナルティを加算（連続勤務回避）
-                        # - 今月のこれまでのシフト回数（偏り防止）
-                        # - タイブレークのための少量のランダム値
                         candidate_scores = []
                         for c in candidates:
-                            penalty = 100 if last_assigned_task[c.id] == task.id else 0
-                            # 今月のシフト数が少ない人を最優先にする
-                            score = penalty + c.id * 0.001  # 基本の決定性
-                            # シフト数による傾斜
+                            # 今月のこれまでのシフト回数（偏り防止）
+                            score = c.id * 0.001
                             score += staff_shift_counts[c.id] * 5
-                            # わずかなランダム要素を加えて毎回の自動作成に多様性を持たせる
                             score += random.uniform(0, 0.1)
                             candidate_scores.append((score, c))
 
@@ -136,13 +129,70 @@ def generate_monthly_shifts(year, month):
                         week_key = (y_num, w_num)
                         weekly_work_counts[chosen_staff.id][week_key] = weekly_work_counts[chosen_staff.id].get(week_key, 0) + 1
                     else:
-                        # 割り当て可能なスタッフがいない場合は、未割り当てとしてスロットだけ作成
+                        # 1人目で割り当て不可な場合、スロットをNoneで作成
                         Shift.objects.create(
                             date=current_date,
                             task=task,
                             staff=None,
                             status='draft'
                         )
+
+            # パス2: 各業務の「2人目以降」を割り当てる
+            for task in tasks:
+                if task.required_people_per_day > 1:
+                    # すでにパス1で1スロット作成されているので、残り (required - 1) 個を割り当てる
+                    for _ in range(1, task.required_people_per_day):
+                        # 候補者のリストアップ
+                        candidates = []
+                        for staff in staff_pool:
+                            if not staff.available_tasks.filter(id=task.id).exists():
+                                continue
+                            if (staff.id, current_date) in unavailable_set:
+                                continue
+                            if staff.id in assigned_today:
+                                continue
+                            y_num, w_num, _ = current_date.isocalendar()
+                            week_key = (y_num, w_num)
+                            if weekly_work_counts[staff.id].get(week_key, 0) >= 5:
+                                continue
+                            if last_assigned_task[staff.id] == task.id:
+                                continue
+                            
+                            candidates.append(staff)
+
+                        if candidates:
+                            candidate_scores = []
+                            for c in candidates:
+                                score = c.id * 0.001
+                                score += staff_shift_counts[c.id] * 5
+                                score += random.uniform(0, 0.1)
+                                candidate_scores.append((score, c))
+
+                            candidate_scores.sort(key=lambda x: x[0])
+                            chosen_staff = candidate_scores[0][1]
+
+                            # シフトの作成
+                            Shift.objects.create(
+                                date=current_date,
+                                task=task,
+                                staff=chosen_staff,
+                                status='draft'
+                            )
+                            assigned_today.add(chosen_staff.id)
+                            staff_shift_counts[chosen_staff.id] += 1
+                            last_assigned_task[chosen_staff.id] = task.id
+                            
+                            y_num, w_num, _ = current_date.isocalendar()
+                            week_key = (y_num, w_num)
+                            weekly_work_counts[chosen_staff.id][week_key] = weekly_work_counts[chosen_staff.id].get(week_key, 0) + 1
+                        else:
+                            # 2人目以降で割り当て不可な場合、スロットをNoneで作成
+                            Shift.objects.create(
+                                date=current_date,
+                                task=task,
+                                staff=None,
+                                status='draft'
+                            )
 
             # 本日割り当てがなかったスタッフの「前回の業務」をクリアする
             for staff in staff_pool:

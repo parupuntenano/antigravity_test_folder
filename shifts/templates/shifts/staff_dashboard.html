@@ -2,6 +2,39 @@
 
 {% block title %}スタッフダッシュボード | シフト表作成システム{% endblock %}
 
+{% block extra_css %}
+<style>
+  .calendar-grid {
+    grid-template-columns: repeat(8, 1fr) !important;
+  }
+  .calendar-day-cell:nth-child(7n) {
+    border-right: 1px solid var(--border-glass) !important;
+  }
+  .calendar-day-cell:nth-child(8n) {
+    border-right: none !important;
+  }
+  .weekly-summary-cell {
+    background-color: hsla(223, 47%, 14%, 0.6);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-align: center;
+    padding: 0.5rem;
+    min-height: 110px;
+    border-bottom: 1px solid var(--border-glass);
+    border-right: none !important;
+    backdrop-filter: blur(10px);
+  }
+  .weekly-status-text {
+    font-family: var(--font-title);
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- ヘッダー -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -26,6 +59,38 @@
   </div>
 </div>
 
+<!-- 提出ステータス表示エリア -->
+<div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem; backdrop-filter: blur(10px); border: 1px solid {% if is_submitted %}var(--color-success){% else %}var(--color-warning){% endif %}; background: {% if is_submitted %}rgba(16, 185, 129, 0.05){% else %}rgba(245, 158, 11, 0.05){% endif %};">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: {% if is_submitted %}var(--color-success){% else %}var(--color-warning){% endif %};"></span>
+        <h3 style="font-family: var(--font-title); font-size: 1.1rem; font-weight: 700; margin: 0; color: {% if is_submitted %}var(--color-success){% else %}var(--color-warning){% endif %};">
+          {{ year }}年{{ month }}月の希望提出ステータス: {% if is_submitted %}提出済み{% else %}未提出{% endif %}
+        </h3>
+      </div>
+      <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">
+        {% if is_submitted %}
+          提出が完了しています。勤務不可日の変更はロックされています。
+        {% else %}
+          各週につき必ず2日の勤務不可日を設定し、完了後に提出を行ってください。提出後は内容が確定し、管理者がシフトを作成可能になります。
+        {% endif %}
+      </p>
+    </div>
+    
+    {% if not is_submitted %}
+      <form action="{% url 'shifts:availability_submit' %}" method="post" style="margin: 0;" onsubmit="return confirm('{{ year }}年{{ month }}月の希望を提出して確定します。よろしいですか？（提出後の変更はできません）');">
+        {% csrf_token %}
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month" value="{{ month }}">
+        <button type="submit" class="btn btn-primary" style="background-color: var(--color-warning); border-color: var(--color-warning); font-weight: 600;">
+          希望を確定して提出する
+        </button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
 <div class="grid-two-cols" style="display: grid; grid-template-columns: 3fr 1fr; gap: 1.5rem; width: 100%;">
   
   <!-- 左カラム: 月間カレンダー -->
@@ -34,7 +99,8 @@
     
     <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
       ※ カレンダー内の<strong>「勤務不可」</strong>または<strong>「勤務可能」</strong>ボタンを押すと、その日付の勤務可否をトグル（切り替え）できます。<br>
-      ※ シフトが確定している日は背景に業務名がカード表示されます。
+      ※ シフトが確定している日は背景に業務名がカード表示されます。<br>
+      ※ <strong style="color: var(--color-warning);">週に必ず2日</strong>の勤務不可日を設定してください。
     </p>
 
     <div class="calendar-grid">
@@ -46,10 +112,11 @@
       <div class="calendar-header-day">金</div>
       <div class="calendar-header-day" style="color: hsl(200, 95%, 70%);">土</div>
       <div class="calendar-header-day" style="color: var(--color-danger);">日</div>
+      <div class="calendar-header-day" style="color: var(--text-secondary); background-color: rgba(255, 255, 255, 0.03);">不可日数</div>
 
       <!-- 週・日付 -->
       {% for week in calendar_weeks %}
-        {% for day in week %}
+        {% for day in week.days %}
           <div class="calendar-day-cell {% if not day.is_current_month %}other-month{% endif %} {% if day.is_unavailable %}is-unavailable{% endif %}">
             
             <div class="calendar-day-header">
@@ -63,11 +130,11 @@
                   {% csrf_token %}
                   <input type="hidden" name="date" value="{{ day.date|date:'Y-m-d' }}">
                   {% if day.is_unavailable %}
-                    <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.65rem; padding: 0.1rem 0.35rem; color: var(--color-success); border-color: var(--color-success-bg);" title="勤務可能にする">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.65rem; padding: 0.1rem 0.35rem; color: var(--color-success); border-color: var(--color-success-bg); {% if is_submitted %}opacity: 0.6; cursor: not-allowed;{% endif %}" {% if is_submitted %}disabled title="提出済のため変更不可"{% else %}title="勤務可能にする"{% endif %}>
                       可能にする
                     </button>
                   {% else %}
-                    <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.65rem; padding: 0.1rem 0.35rem;" title="不可に登録">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.65rem; padding: 0.1rem 0.35rem; {% if is_submitted %}opacity: 0.6; cursor: not-allowed;{% endif %}" {% if is_submitted %}disabled title="提出済のため変更不可"{% else %}title="不可に登録"{% endif %}>
                       不可にする
                     </button>
                   {% endif %}
@@ -97,6 +164,21 @@
 
           </div>
         {% endfor %}
+        
+        <!-- 週の不可日数サマリー (8列目) -->
+        <div class="weekly-summary-cell">
+          <div style="font-size: 0.7rem; color: var(--text-secondary); font-weight: 600;">週不可日</div>
+          <div class="weekly-status-text" style="color: {% if week.is_ok %}var(--color-success){% else %}var(--color-warning){% endif %};">
+            {{ week.unavailable_count }} / 2日
+          </div>
+          {% if week.is_ok %}
+            <span class="badge badge-success" style="font-size: 0.65rem; padding: 0.2rem 0.5rem;">OK</span>
+          {% else %}
+            <span class="badge badge-warning" style="font-size: 0.65rem; padding: 0.2rem 0.5rem; background-color: var(--color-warning-bg); border: 1px solid rgba(245, 158, 11, 0.2);">
+              あと {{ week.remaining }}日
+            </span>
+          {% endif %}
+        </div>
       {% endfor %}
     </div>
   </div>

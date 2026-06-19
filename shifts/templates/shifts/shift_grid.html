@@ -8,7 +8,11 @@
   <div>
     <h2 style="font-family: var(--font-title); font-size: 1.75rem; font-weight: 700;">シフト作成・管理</h2>
     <p style="color: var(--text-secondary); font-size: 0.95rem;">
-      {{ year }}年{{ month }}月のシフト表です。自動作成したシフトの確認・修正が行えます。
+      {% if not is_stage2 %}
+        【第一段階：休日調整】スタッフの休日希望（休み）を確認・調整しています。「シフトを自動作成」をクリックするとシフトが作成されます。
+      {% else %}
+        【第二段階：業務割り当て】自動作成されたシフトの確認・手動修正が行えます。
+      {% endif %}
     </p>
   </div>
   
@@ -37,97 +41,300 @@
       <button type="submit" class="btn btn-secondary">表示</button>
     </form>
 
-    <!-- シフト自動作成フォーム -->
-    <form action="{% url 'shifts:shift_generate' %}" method="post" onsubmit="return confirm('既存の{{ year }}年{{ month }}月のシフト（下書き）がすべてクリアされます。よろしいですか？');">
-      {% csrf_token %}
-      <input type="hidden" name="year" value="{{ year }}">
-      <input type="hidden" name="month" value="{{ month }}">
-      <button type="submit" class="btn btn-primary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-        シフトを自動作成
+    <!-- 変更を保存ボタン -->
+    <button type="submit" form="batch-save-form" class="btn btn-primary" style="background: linear-gradient(135deg, var(--color-success) 0%, hsla(142, 70%, 40%, 0.9) 100%); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      変更を保存
+    </button>
+
+    {% if not is_stage2 %}
+      <!-- シフト自動作成ボタン (モーダル表示) -->
+      {% if all_submitted %}
+        <button type="button" class="btn btn-primary" onclick="document.getElementById('generate-confirm-modal').style.display = 'flex';">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          シフトを自動作成
+        </button>
+      {% else %}
+        <button type="button" class="btn btn-secondary" style="opacity: 0.5; cursor: not-allowed; border-color: var(--border-glass);" disabled title="メンバー全員が希望提出を完了していません">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          シフトを自動作成
+        </button>
+      {% endif %}
+
+      <!-- 自動作成確認モーダル -->
+      <div id="generate-confirm-modal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="card" style="width: 100%; max-width: 400px; padding: 2rem; background: var(--bg-surface); border: 1px solid var(--border-glass); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); text-align: center;">
+          <h3 style="font-family: var(--font-title); font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; color: var(--accent-light);">シフトの自動作成</h3>
+          <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 2rem; line-height: 1.5; text-align: left;">
+            既存の{{ year }}年{{ month }}月のシフト（下書き）がすべてクリアされ、再作成されます。よろしいですか？
+          </p>
+          <div style="display: flex; gap: 1rem; justify-content: center;">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('generate-confirm-modal').style.display = 'none';">
+              キャンセル
+            </button>
+            <form action="{% url 'shifts:shift_generate' %}" method="post" style="margin: 0;">
+              {% csrf_token %}
+              <input type="hidden" name="year" value="{{ year }}">
+              <input type="hidden" name="month" value="{{ month }}">
+              <button type="submit" class="btn btn-primary">
+                作成する
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <!-- シフト表クリアボタン (モーダル表示) -->
+      <button type="button" class="btn btn-danger" onclick="document.getElementById('clear-confirm-modal').style.display = 'flex';">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        シフト表をクリアして休日調整に戻る
       </button>
-    </form>
+
+      <!-- クリア確認モーダル -->
+      <div id="clear-confirm-modal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="card" style="width: 100%; max-width: 400px; padding: 2rem; background: var(--bg-surface); border: 1px solid var(--border-glass); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); text-align: center;">
+          <h3 style="font-family: var(--font-title); font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; color: var(--color-danger);">シフトのクリア</h3>
+          <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 2rem; line-height: 1.5; text-align: left;">
+            {{ year }}年{{ month }}月のすべてのシフトデータをクリアして、第一段階（休日調整）に戻します。よろしいですか？
+          </p>
+          <div style="display: flex; gap: 1rem; justify-content: center;">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('clear-confirm-modal').style.display = 'none';">
+              キャンセル
+            </button>
+            <form action="{% url 'shifts:clear_monthly_shifts' %}" method="post" style="margin: 0;">
+              {% csrf_token %}
+              <input type="hidden" name="year" value="{{ year }}">
+              <input type="hidden" name="month" value="{{ month }}">
+              <button type="submit" class="btn btn-danger" style="background-color: var(--color-danger); border-color: var(--color-danger); color: white;">
+                クリアする
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- 希望設定状況の確認カード -->
+<div class="card" style="padding: 1.25rem; margin-bottom: 1.5rem; border: 1px solid {% if all_submitted %}var(--color-success){% else %}var(--color-warning){% endif %}; background: {% if all_submitted %}rgba(16, 185, 129, 0.03){% else %}rgba(245, 158, 11, 0.03){% endif %};">
+  <h3 class="card-title" style="font-size: 1.15rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: {% if all_submitted %}var(--color-success){% else %}var(--color-warning){% endif %};"></span>
+    {{ year }}年{{ month }}月の休日希望設定状況（週2日設定済: {{ ready_staff|length }}/{{ total_staff_count }}）
+  </h3>
+  
+  <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+    <!-- 設定済みスタッフ -->
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <span style="font-size: 0.85rem; font-weight: 600; color: var(--color-success); min-width: 110px;">【週2日設定済み】</span>
+      {% if ready_staff %}
+        {% for st in ready_staff %}
+          <span class="badge badge-success" style="font-size: 0.8rem; padding: 0.25rem 0.6rem;">{{ st.name }}</span>
+        {% endfor %}
+      {% else %}
+        <span style="color: var(--text-muted); font-size: 0.85rem;">設定済みのスタッフはいません。</span>
+      {% endif %}
+    </div>
+    
+    <!-- 未設定スタッフ -->
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <span style="font-size: 0.85rem; font-weight: 600; color: var(--color-warning); min-width: 110px;">【設定未完了】</span>
+      {% if not_ready_staff %}
+        {% for st in not_ready_staff %}
+          <span class="badge badge-warning" style="font-size: 0.8rem; padding: 0.25rem 0.6rem; background-color: var(--color-warning-bg); border: 1px solid rgba(245, 158, 11, 0.2);">{{ st.name }}</span>
+        {% endfor %}
+      {% else %}
+        <span class="badge badge-success" style="font-size: 0.8rem; padding: 0.25rem 0.6rem;">なし（全員週2日設定完了）</span>
+      {% endif %}
+    </div>
+
+    <!-- 公式提出状況（参考） -->
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--border-glass); padding-top: 0.6rem; margin-top: 0.25rem;">
+      <span style="font-size: 0.8rem; color: var(--text-muted); min-width: 110px;">【公式提出済み】</span>
+      {% if submitted_staff %}
+        {% for st in submitted_staff %}
+          <span class="badge" style="background-color: rgba(255,255,255,0.06); color: var(--text-secondary); font-size: 0.75rem; padding: 0.2rem 0.5rem;">{{ st.name }}</span>
+        {% endfor %}
+      {% else %}
+        <span style="color: var(--text-muted); font-size: 0.8rem;">提出済みのスタッフはいません（週2日設定があれば作成可能）。</span>
+      {% endif %}
+    </div>
   </div>
 </div>
 
 <!-- シフト表グリッドカード -->
-<div class="card" style="padding: 1rem;">
-  <div class="shift-grid-wrapper">
-    <table class="shift-grid-table">
+<form id="batch-save-form" method="post" action="{% url 'shifts:shift_management' %}?year={{ year }}&month={{ month }}">
+  {% csrf_token %}
+  <input type="hidden" name="stage" value="{% if not is_stage2 %}stage_1{% else %}stage_2{% endif %}">
+  
+  <div class="card" style="padding: 1rem;">
+    <div class="shift-grid-wrapper">
+      <table class="shift-grid-table">
       <thead>
         <tr>
-          <th class="date-col">日付</th>
-          {% for task in tasks %}
-            <th>{{ task.name }}</th>
+          <th style="position: sticky; left: 0; background-color: var(--bg-surface); z-index: 15; min-width: 110px;">スタッフ</th>
+          {% for d_info in dates_with_info %}
+            {% with d=d_info.date %}
+              <th class="{% if d.weekday == 5 %}saturday{% elif d.weekday == 6 %}sunday{% endif %}" style="min-width: 70px; text-align: center;">
+                {{ d|date:"d" }}<br>
+                {% if d.weekday == 0 %}月
+                {% elif d.weekday == 1 %}火
+                {% elif d.weekday == 2 %}水
+                {% elif d.weekday == 3 %}木
+                {% elif d.weekday == 4 %}金
+                {% elif d.weekday == 5 %}土
+                {% elif d.weekday == 6 %}日
+                {% endif %}
+              </th>
+            {% endwith %}
           {% endfor %}
         </tr>
       </thead>
       <tbody>
         {% for row in grid_rows %}
           <tr>
-            <!-- 日付（縦軸） -->
-            <td class="date-cell {% if row.date.weekday == 5 %}saturday{% elif row.date.weekday == 6 %}sunday{% endif %}">
-              {% if row.date.weekday == 0 %}{{ row.date|date:"m/d (月)" }}
-              {% elif row.date.weekday == 1 %}{{ row.date|date:"m/d (火)" }}
-              {% elif row.date.weekday == 2 %}{{ row.date|date:"m/d (水)" }}
-              {% elif row.date.weekday == 3 %}{{ row.date|date:"m/d (木)" }}
-              {% elif row.date.weekday == 4 %}{{ row.date|date:"m/d (金)" }}
-              {% elif row.date.weekday == 5 %}<strong>{{ row.date|date:"m/d (土)" }}</strong>
-              {% elif row.date.weekday == 6 %}<strong>{{ row.date|date:"m/d (日)" }}</strong>
-              {% endif %}
+            <!-- スタッフ名（縦軸） -->
+            <td style="position: sticky; left: 0; background-color: var(--bg-surface); z-index: 9; font-weight: 700; font-family: var(--font-title); min-width: 110px; border-right: 2px solid var(--border-glass);">
+              {{ row.staff.name }}
             </td>
 
-            <!-- 各業務セル（横軸） -->
+            <!-- 各日付セル -->
             {% for col in row.cols %}
-              <td>
-                <div class="shift-cell-inner">
-                  {% for s in col.shifts %}
-                    <div class="shift-slot {% if not s.staff %}unassigned{% elif s.warning_list %}has-warning{% endif %}">
-                      
-                      <!-- クイック割り当て変更フォーム -->
-                      <form action="{% url 'shifts:shift_update' %}" method="post" class="shift-quick-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="shift_id" value="{{ s.id }}">
-                        <select name="staff_id" onchange="this.form.submit()" style="font-weight: 500;">
-                          <option value="">-- 未割当 --</option>
-                          {% for st in col.capable_staff %}
-                            <option value="{{ st.id }}" {% if s.staff_id == st.id %}selected{% endif %}>
-                              {{ st.name }}
+              <td style="text-align: center; vertical-align: middle; padding: 0.5rem; {% if col.date.weekday == 5 %}background-color: rgba(59, 130, 246, 0.04);{% elif col.date.weekday == 6 %}background-color: rgba(239, 68, 68, 0.04);{% endif %}">
+                <div class="shift-cell-inner" style="min-height: auto;">
+                  {% if not is_stage2 %}
+                    <!-- 第一段階：休日調整 -->
+                    <button type="button" class="btn {% if col.is_unavailable %}btn-danger{% else %}btn-secondary{% endif %} btn-sm"
+                            style="width: 100%; min-width: 60px; padding: 0.25rem 0.5rem; font-size: 0.75rem; {% if not col.is_unavailable %}opacity: 0.6;{% endif %}"
+                            onclick="toggleHoliday(this, '{{ row.staff.id }}', '{{ col.date|date:'Y-m-d' }}')">
+                      {% if col.is_unavailable %}休み{% else %}出勤{% endif %}
+                    </button>
+                    <input type="checkbox" name="unavailable_dates" id="chk_{{ row.staff.id }}_{{ col.date|date:'Y-m-d' }}"
+                           value="{{ row.staff.id }}_{{ col.date|date:'Y-m-d' }}"
+                           {% if col.is_unavailable %}checked{% endif %}
+                           style="display: none;">
+                  {% else %}
+                    <!-- 第二段階：業務割り当て -->
+                    {% if col.is_unavailable %}
+                      <span class="badge badge-danger" style="padding: 0.35rem 0.6rem; font-size: 0.75rem;">休み</span>
+                    {% else %}
+                      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%;">
+                        <select name="task_{{ row.staff.id }}_{{ col.date|date:'Y-m-d' }}" style="font-size: 0.8rem; padding: 0.25rem; border-radius: 4px; width: 100%; min-width: 80px; border: 1px solid var(--border-glass); background: var(--bg-surface); color: var(--text-primary);">
+                          <option value="">--</option>
+                          {% for task in row.staff.available_tasks.all %}
+                            <option value="{{ task.id }}" {% if col.assigned_shift.task_id == task.id %}selected{% endif %}>
+                              {{ task.name }}
                             </option>
                           {% endfor %}
                         </select>
-                      </form>
 
-                      <!-- 警告表示 -->
-                      {% if s.warning_list %}
-                        <div class="shift-warnings-container">
-                          {% for w in s.warning_list %}
-                            <span class="shift-warning-text" title="{{ w }}">
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
-                              {{ w }}
-                            </span>
-                          {% endfor %}
-                        </div>
-                      {% endif %}
-
-                      <!-- 再割り当て画面へのボタン -->
-                      <div class="shift-actions">
-                        <a href="{% url 'shifts:shift_reassign' s.id %}" class="btn btn-secondary btn-sm" style="font-size: 0.7rem; padding: 0.1rem 0.3rem;" title="代替候補を探す">
-                          候補を検索
-                        </a>
+                        <!-- 警告表示 -->
+                        {% if col.warnings %}
+                          <div class="shift-warnings-container" style="width: 100%; text-align: left;">
+                            {% for w in col.warnings %}
+                              <div class="shift-warning-text" title="{{ w }}" style="color: var(--color-warning); font-size: 0.7rem; line-height: 1.2; display: flex; align-items: center; gap: 2px;">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+                                <span style="word-break: break-all;">{{ w }}</span>
+                              </div>
+                            {% endfor %}
+                          </div>
+                        {% endif %}
                       </div>
-
-                    </div>
-                  {% empty %}
-                    <span style="color: var(--text-muted); font-size: 0.8rem;">-</span>
-                  {% endfor %}
+                    {% endif %}
+                  {% endif %}
                 </div>
               </td>
             {% endfor %}
           </tr>
         {% endfor %}
+
+        <!-- 未割り当て業務の表示行 (Stage 2のみ) -->
+        {% if is_stage2 %}
+          <tr style="background-color: rgba(239, 68, 68, 0.05); font-weight: bold;">
+            <td style="position: sticky; left: 0; background-color: var(--bg-surface); z-index: 9; min-width: 110px; border-right: 2px solid var(--border-glass); text-align: left; font-size: 0.8rem;">
+              未割り当て業務
+            </td>
+            {% for d_info in dates_with_info %}
+              <td style="text-align: center; vertical-align: middle; padding: 0.5rem; {% if d_info.date.weekday == 5 %}background-color: rgba(59, 130, 246, 0.04);{% elif d_info.date.weekday == 6 %}background-color: rgba(239, 68, 68, 0.04);{% endif %}">
+                {% for task_name in d_info.unassigned_tasks %}
+                  <span class="badge badge-danger" style="background-color: rgba(239, 68, 68, 0.15); color: var(--color-danger); border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.7rem; margin: 2px; padding: 0.2rem 0.4rem; display: inline-block; white-space: nowrap;">
+                    {{ task_name }}
+                  </span>
+                {% empty %}
+                  <span style="color: var(--color-success); font-size: 0.75rem;">なし</span>
+                {% endfor %}
+              </td>
+            {% endfor %}
+          </tr>
+        {% endif %}
+        <!-- 休み希望人数 (Stage 1のみ) -->
+        {% if not is_stage2 %}
+          <tr style="background-color: rgba(245, 158, 11, 0.05); font-weight: bold;">
+            <td style="position: sticky; left: 0; background-color: var(--bg-surface); z-index: 9; min-width: 110px; border-right: 2px solid var(--border-glass); text-align: left; font-size: 0.8rem;">
+              休み希望人数
+            </td>
+            {% for d_info in dates_with_info %}
+              <td style="text-align: center; vertical-align: middle; padding: 0.5rem; {% if d_info.date.weekday == 5 %}background-color: rgba(59, 130, 246, 0.04);{% elif d_info.date.weekday == 6 %}background-color: rgba(239, 68, 68, 0.04);{% endif %}">
+                {% if d_info.off_count > 0 %}
+                  <span id="off-count-{{ d_info.date|date:'Y-m-d' }}" class="badge badge-warning" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                    {{ d_info.off_count }}人
+                  </span>
+                {% else %}
+                  <span id="off-count-{{ d_info.date|date:'Y-m-d' }}" class="badge" style="background-color: rgba(255, 255, 255, 0.08); color: var(--text-muted); font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                    0人
+                  </span>
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+        {% endif %}
       </tbody>
     </table>
   </div>
 </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function toggleHoliday(btn, staffId, dateStr) {
+    const checkbox = document.getElementById('chk_' + staffId + '_' + dateStr);
+    if (checkbox.checked) {
+      checkbox.checked = false;
+      btn.classList.remove('btn-danger');
+      btn.classList.add('btn-secondary');
+      btn.style.opacity = '0.6';
+      btn.textContent = '出勤';
+    } else {
+      checkbox.checked = true;
+      btn.classList.remove('btn-secondary');
+      btn.classList.add('btn-danger');
+      btn.style.opacity = '1.0';
+      btn.textContent = '休み';
+    }
+
+    // 休み希望人数の動的更新
+    const countEl = document.getElementById('off-count-' + dateStr);
+    if (countEl) {
+      let currentCount = parseInt(countEl.textContent) || 0;
+      if (checkbox.checked) {
+        currentCount += 1;
+      } else {
+        currentCount = Math.max(0, currentCount - 1);
+      }
+      countEl.textContent = currentCount + '人';
+      
+      // 表示スタイルの動的更新
+      if (currentCount > 0) {
+        countEl.className = 'badge badge-warning';
+        countEl.style.backgroundColor = '';
+        countEl.style.color = '';
+      } else {
+        countEl.className = 'badge';
+        countEl.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+        countEl.style.color = 'var(--text-muted)';
+      }
+    }
+  }
+</script>
 {% endblock %}

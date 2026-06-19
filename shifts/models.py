@@ -92,3 +92,41 @@ class AbsenceRequest(models.Model):
 
     def __str__(self):
         return f"{self.staff.name} - {self.date} ({self.get_status_display()})"
+
+class AvailabilitySubmission(models.Model):
+    """シフト希望提出状況"""
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='submissions', verbose_name="スタッフ")
+    year = models.PositiveIntegerField(verbose_name="年")
+    month = models.PositiveIntegerField(verbose_name="月")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="提出日時")
+
+    class Meta:
+        verbose_name = "希望提出"
+        verbose_name_plural = "希望提出一覧"
+        unique_together = ('staff', 'year', 'month')
+
+    def __str__(self):
+        return f"{self.staff.name} - {self.year}年{self.month}月"
+
+
+class ShiftPublication(models.Model):
+    """月次シフト公開状況"""
+    year = models.PositiveIntegerField(verbose_name="年")
+    month = models.PositiveIntegerField(verbose_name="月")
+    published_at = models.DateTimeField(null=True, blank=True, verbose_name="公開日時")
+    needs_update = models.BooleanField(default=False, verbose_name="更新が必要")
+
+    class Meta:
+        verbose_name = "シフト公開"
+        verbose_name_plural = "シフト公開一覧"
+        unique_together = ('year', 'month')
+
+    def __str__(self):
+        status = "公開中" if self.published_at else "未公開"
+        return f"{self.year}年{self.month}月 ({status})"
+
+    @property
+    def is_published(self):
+        return self.published_at is not None
+
+

@@ -34,6 +34,9 @@ urlpatterns = [
     path('manager/shifts/stats/', views.ShiftStatsView.as_view(), name='shift_stats'),
     path('manager/shifts/generate/', views.AutoGenerateShiftView.as_view(), name='shift_generate'),
     path('manager/shifts/update/', views.UpdateShiftStaffView.as_view(), name='shift_update'),
+    path('manager/shifts/toggle-unavailable/', views.AdminToggleUnavailableDateView.as_view(), name='admin_toggle_unavailable'),
+    path('manager/shifts/update-staff-shift/', views.AdminUpdateShiftView.as_view(), name='admin_update_staff_shift'),
+    path('manager/shifts/clear/', views.ClearMonthlyShiftsView.as_view(), name='clear_monthly_shifts'),
     path('manager/shifts/<int:shift_id>/reassign/', views.ReassignShiftView.as_view(), name='shift_reassign'),
     path('manager/absences/<int:request_id>/approve/', views.AbsenceRequestApprovalView.as_view(), name='absence_approve'),
 
@@ -41,4 +44,5 @@ urlpatterns = [
     path('staff/dashboard/', views.StaffDashboardView.as_view(), name='staff_dashboard'),
     path('staff/unavailable/toggle/', views.ToggleUnavailableDateView.as_view(), name='unavailable_toggle'),
     path('staff/absence/request/', views.SubmitAbsenceRequestView.as_view(), name='absence_request'),
+    path('staff/availability/submit/', views.SubmitAvailabilityView.as_view(), name='availability_submit'),
 ]
